@@ -1,10 +1,9 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.graphics.Color;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -16,40 +15,64 @@ public class XposedEntry implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.bilibili.fatego")) return;
-        XposedBridge.log("FGO Menu: Bili FGO detected!");
-
-        Class<?> targetActivity = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
+        if (!lpparam.packageName.equals("com.bilibili.fatego") && 
+            !lpparam.packageName.equals("com.aniplex.fategrandorder") &&
+            !lpparam.packageName.equals("com.xiaomeng.fategrandorder")) return;
         
-        XposedHelpers.findAndHookMethod(targetActivity, "onWindowFocusChanged", boolean.class, new XC_MethodHook() {
+        XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
+
+        // 终极杀招 1：Hook PackageManager，伪造权限声明！
+        try {
+            XposedHelpers.findAndHookMethod("android.app.ApplicationPackageManager", lpparam.classLoader, "checkPermission", String.class, String.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    String perm = (String) param.args[0];
+                    if ("android.permission.SYSTEM_ALERT_WINDOW".equals(perm)) {
+                        param.setResult(0); // 0 = PackageManager.PERMISSION_GRANTED
+                        XposedBridge.log("FGO Menu: Faked PackageManager PERMISSION_GRANTED!");
+                    }
+                }
+            });
+        } catch (Throwable t) { XposedBridge.log("FGO Menu: Hook PackageManager failed: " + t.getMessage()); }
+
+        // 终极杀招 2：Hook AppOpsManager 的所有检查方法，伪造操作权限！
+        String[] opsMethods = {"checkOpNoThrow", "noteOpNoThrow", "checkOp", "noteOp", "startOpNoThrow", "startOp"};
+        for (String method : opsMethods) {
+            try {
+                XposedHelpers.findAndHookMethod("android.app.AppOpsManager", lpparam.classLoader, method, int.class, int.class, String.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        int op = (int) param.args[0];
+                        if (op == 24) { // 24 = AppOpsManager.OP_SYSTEM_ALERT_WINDOW
+                            param.setResult(0); // 0 = AppOpsManager.MODE_ALLOWED
+                        }
+                    }
+                });
+            } catch (Throwable ignored) {}
+        }
+        
+        // 终极杀招 3：Hook Settings.canDrawOverlays (Android 6.0+)
+        try {
+            XposedHelpers.findAndHookMethod("android.provider.Settings", lpparam.classLoader, "canDrawOverlays", android.content.Context.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    param.setResult(true);
+                }
+            });
+        } catch (Throwable ignored) {}
+
+        // 启动原作者的 Launcher
+        XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                boolean hasFocus = (boolean) param.args[0];
-                if (!hasFocus || isHooked) return;
+                if (isHooked) return;
                 isHooked = true;
-                
-                final Activity activity = (Activity) param.thisObject;
-                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus! Adding RED SCREEN...");
-                
+                Activity activity = (Activity) param.thisObject;
                 activity.runOnUiThread(() -> {
                     try {
-                        ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
-                        
-                        // 最暴力的全屏红色遮罩，不需要任何权限和资源！
-                        View redScreen = new View(activity);
-                        redScreen.setBackgroundColor(Color.parseColor("#CCFF0000")); // 半透明红色
-                        
-                        FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
-                            FrameLayout.LayoutParams.MATCH_PARENT,
-                            FrameLayout.LayoutParams.MATCH_PARENT
-                        );
-                        
-                        decor.addView(redScreen, flp);
-                        redScreen.bringToFront();
-                        
-                        XposedBridge.log("FGO Menu: RED SCREEN ADDED SUCCESSFULLY!");
+                        Toast.makeText(activity, "晴酱的菜单注入成功喵！权限已伪造！", Toast.LENGTH_LONG).show();
+                        activity.startService(new Intent(activity, Launcher.class));
                     } catch (Throwable t) {
-                        XposedBridge.log("FGO Menu FATAL: " + t.getMessage());
                         XposedBridge.log(t);
                     }
                 });
