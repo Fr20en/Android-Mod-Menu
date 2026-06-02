@@ -276,7 +276,9 @@ public class Menu {
             public boolean onLongClick(View view) {
                 Toast.makeText(view.getContext(), "Menu killed", Toast.LENGTH_LONG).show();
                 rootFrame.removeView(mRootContainer);
-                mWindowManager.removeView(rootFrame);
+                if (rootFrame.getParent() instanceof android.view.ViewGroup) {
+                        ((android.view.ViewGroup) rootFrame.getParent()).removeView(rootFrame);
+                    } else { mWindowManager.removeView(rootFrame); }
                 return false;
             }
         });
@@ -361,7 +363,11 @@ public class Menu {
         vmParams.y = POS_Y;
 
         mWindowManager = (WindowManager) getContext.getSystemService(Context.WINDOW_SERVICE);
-        mWindowManager.addView(rootFrame, vmParams);
+        if (getContext instanceof android.app.Activity) {
+                        android.widget.FrameLayout.LayoutParams flp = new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+                        flp.leftMargin = vmParams.x; flp.topMargin = vmParams.y;
+                        ((android.app.Activity) getContext).addContentView(rootFrame, flp);
+                    } else { mWindowManager.addView(rootFrame, vmParams); }
 
         overlayRequired = true;
     }
@@ -385,7 +391,11 @@ public class Menu {
         vmParams.y = POS_Y;
 
         mWindowManager = ((Activity) getContext).getWindowManager();
-        mWindowManager.addView(rootFrame, vmParams);
+        if (getContext instanceof android.app.Activity) {
+                        android.widget.FrameLayout.LayoutParams flp = new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+                        flp.leftMargin = vmParams.x; flp.topMargin = vmParams.y;
+                        ((android.app.Activity) getContext).addContentView(rootFrame, flp);
+                    } else { mWindowManager.addView(rootFrame, vmParams); }
     }
 
     private View.OnTouchListener onTouchListener() {
@@ -428,7 +438,11 @@ public class Menu {
                         vmParams.x = initialX + ((int) (motionEvent.getRawX() - initialTouchX));
                         vmParams.y = initialY + ((int) (motionEvent.getRawY() - initialTouchY));
                         //Update the layout with new X & Y coordinate
-                        mWindowManager.updateViewLayout(rootFrame, vmParams);
+                        if (rootFrame.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams) {
+                        android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) rootFrame.getLayoutParams();
+                        flp.leftMargin = vmParams.x; flp.topMargin = vmParams.y;
+                        rootFrame.setLayoutParams(flp);
+                    } else { mWindowManager.updateViewLayout(rootFrame, vmParams); }
                         return true;
                     default:
                         return false;
@@ -1146,7 +1160,9 @@ public class Menu {
 
     public void onDestroy() {
         if (rootFrame != null) {
-            mWindowManager.removeView(rootFrame);
+            if (rootFrame.getParent() instanceof android.view.ViewGroup) {
+                        ((android.view.ViewGroup) rootFrame.getParent()).removeView(rootFrame);
+                    } else { mWindowManager.removeView(rootFrame); }
         }
     }
 }
