@@ -1,3 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LGL Mod Menu</string>
+    <string name="app_name">FGO Hook Menu</string>
+    <string-array name="xposed_scope">
+        <item>com.bilibili.fatego</item>
+    </string-array>
 </resources>
