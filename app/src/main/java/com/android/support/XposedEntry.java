@@ -44,9 +44,15 @@ public class XposedEntry implements IXposedHookLoadPackage {
                                 return;
                             }
                             Toast.makeText(activity, "FGO Menu Injected!", Toast.LENGTH_SHORT).show();
-                            activity.startService(new Intent(activity, Launcher.class));
+                            
+                            // 抛弃 Launcher Service，直接启动 Menu
+                            Menu menu = new Menu(activity);
+                            menu.SetWindowManagerWindowService();
+                            menu.ShowMenu();
+                            
                         } catch (Throwable t) {
                             XposedBridge.log("FGO Menu Error: " + t.getMessage());
+                            XposedBridge.log(t);
                         }
                     });
                 }
