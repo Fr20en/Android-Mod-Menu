@@ -8,19 +8,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up JDK 17
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '11'
           distribution: 'temurin'
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
       - name: Install NDK
-        run: sdkmanager "ndk;25.2.9519653"
-      - name: Build APK directly
-        run: gradle assembleRelease --no-daemon
+        run: sdkmanager "ndk;21.4.7075529"
+      - name: Force update Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 7.5
+          chmod +x gradlew
+      - name: Build APK
+        run: ./gradlew assembleRelease --no-daemon --no-build-cache
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
