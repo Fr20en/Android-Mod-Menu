@@ -14,7 +14,7 @@ public class XposedEntry implements IXposedHookLoadPackage {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Context ctx = ((Application) param.thisObject).getApplicationContext();
-                Menu.Start(ctx);
+                new Menu(ctx);
             }
         });
     }
