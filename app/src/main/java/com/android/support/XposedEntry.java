@@ -1,10 +1,8 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.view.SurfaceView;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Toast;
+import android.content.Intent;
+import android.os.Bundle;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -12,65 +10,36 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class XposedEntry implements IXposedHookLoadPackage {
-    private static boolean isHooked = false;
+    private static boolean isStarted = false;
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.bilibili.fatego")) return;
-        XposedBridge.log("FGO Menu: Bili FGO detected!");
-
-        XposedHelpers.findAndHookMethod(SurfaceView.class, "setZOrderOnTop", boolean.class, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                param.args[0] = false;
-            }
-        });
-
-        Class<?> targetActivity = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
+        if (!lpparam.packageName.equals("com.bilibili.fatego") && 
+            !lpparam.packageName.equals("com.aniplex.fategrandorder") &&
+            !lpparam.packageName.equals("com.xiaomeng.fategrandorder")) return;
         
-        XposedHelpers.findAndHookMethod(targetActivity, "onWindowFocusChanged", boolean.class, new XC_MethodHook() {
+        XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
+
+        XposedHelpers.findAndHookMethod(Activity.class, "onCreate", Bundle.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                boolean hasFocus = (boolean) param.args[0];
-                if (!hasFocus || isHooked) return;
-                isHooked = true;
-                
+                if (isStarted) return;
                 Activity activity = (Activity) param.thisObject;
-                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus!");
-                
-                activity.runOnUiThread(() -> {
-                    try {
-                        ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
-                        demoteSurfaceViews(decor);
-                        
-                        Toast.makeText(activity, "FGO Menu Injected (Activity Mode)!", Toast.LENGTH_LONG).show();
-                        
-                        // 核心：直接用 Activity Context 实例化 Menu，绝对不用 Service！
-                        Menu menu = new Menu(activity);
-                        menu.SetWindowManagerWindowService();
-                        menu.ShowMenu();
-                        
-                        XposedBridge.log("FGO Menu: Menu shown successfully!");
-                    } catch (Throwable t) {
-                        XposedBridge.log("FGO Menu FATAL: " + t.getMessage());
-                        XposedBridge.log(t);
-                    }
-                });
+                String cls = activity.getClass().getName();
+                if (cls.contains("UnityPlayer") || cls.contains("MainActivity") || cls.contains("Splash") || cls.contains("BiliGame") || cls.contains("Act")) {
+                    isStarted = true;
+                    XposedBridge.log("FGO Menu: Starting MenuActivity from " + cls);
+                    activity.runOnUiThread(() -> {
+                        try {
+                            Intent intent = new Intent(activity, MenuActivity.class);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            activity.startActivity(intent);
+                        } catch (Throwable t) {
+                            XposedBridge.log("FGO Menu Error: " + t.getMessage());
+                        }
+                    });
+                }
             }
         });
-    }
-    
-    private void demoteSurfaceViews(ViewGroup group) {
-        for (int i = 0; i < group.getChildCount(); i++) {
-            View child = group.getChildAt(i);
-            if (child instanceof SurfaceView) {
-                try {
-                    ((SurfaceView) child).setZOrderOnTop(false);
-                    ((SurfaceView) child).setZOrderMediaOverlay(false);
-                } catch (Throwable ignored) {}
-            } else if (child instanceof ViewGroup) {
-                demoteSurfaceViews((ViewGroup) child);
-            }
-        }
     }
 }
