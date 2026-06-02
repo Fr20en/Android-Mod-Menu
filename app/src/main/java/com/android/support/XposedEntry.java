@@ -1,8 +1,10 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -14,30 +16,54 @@ public class XposedEntry implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.bilibili.fatego") && 
-            !lpparam.packageName.equals("com.aniplex.fategrandorder") &&
-            !lpparam.packageName.equals("com.xiaomeng.fategrandorder")) return;
-        
-        XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
+        if (!lpparam.packageName.equals("com.bilibili.fatego")) return;
+        XposedBridge.log("FGO Menu: Bili FGO detected!");
 
-        XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
+        Class<?> targetActivity = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
+        
+        XposedHelpers.findAndHookMethod(targetActivity, "onWindowFocusChanged", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (isHooked) return;
+                boolean hasFocus = (boolean) param.args[0];
+                if (!hasFocus || isHooked) return;
                 isHooked = true;
+                
                 Activity activity = (Activity) param.thisObject;
+                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus!");
                 
                 activity.runOnUiThread(() -> {
                     try {
-                        XposedBridge.log("FGO Menu: Sending broadcast to module APK!");
-                        Intent intent = new Intent("com.android.support.SHOW_MENU");
-                        intent.setPackage("com.android.support"); // 确保只发给模块APK
-                        activity.sendBroadcast(intent);
+                        ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
+                        demoteSurfaceViews(decor);
+                        
+                        Toast.makeText(activity, "晴酱的菜单注入成功喵！", Toast.LENGTH_LONG).show();
+                        
+                        Menu menu = new Menu(activity);
+                        menu.SetWindowManagerWindowService();
+                        menu.ShowMenu();
+                        
+                        XposedBridge.log("FGO Menu: Menu shown with TYPE_APPLICATION_PANEL!");
                     } catch (Throwable t) {
                         XposedBridge.log("FGO Menu FATAL: " + t.getMessage());
+                        XposedBridge.log(t);
                     }
                 });
             }
         });
+    }
+    
+    private void demoteSurfaceViews(ViewGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof SurfaceView) {
+                try {
+                    ((SurfaceView) child).setZOrderOnTop(false);
+                    ((SurfaceView) child).setZOrderMediaOverlay(false);
+                    XposedBridge.log("FGO Menu: Demoted SurfaceView Z-Order!");
+                } catch (Throwable ignored) {}
+            } else if (child instanceof ViewGroup) {
+                demoteSurfaceViews((ViewGroup) child);
+            }
+        }
     }
 }
