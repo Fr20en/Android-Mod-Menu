@@ -36,36 +36,67 @@ public class XposedEntry implements IXposedHookLoadPackage {
             }
         });
 
-        // 2. 偷天换日：Hook WindowManager.addView，拦截悬浮窗，强行塞进 DecorView！
-        try {
-            XposedHelpers.findAndHookMethod("android.view.WindowManagerImpl", lpparam.classLoader, "addView", View.class, ViewGroup.LayoutParams.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) param.args[1];
-                    if (lp instanceof WindowManager.LayoutParams) {
-                        WindowManager.LayoutParams wlp = (WindowManager.LayoutParams) lp;
-                        // 拦截所有悬浮窗类型
-                        if (wlp.type == WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY || 
-                            wlp.type == WindowManager.LayoutParams.TYPE_PHONE || 
-                            wlp.type == 2038 || wlp.type == 2002) {
-                            
-                            param.setResult(null); // 阻断原方法
-                            if (currentActivity != null) {
-                                View v = (View) param.args[0];
-                                FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
-                                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                                    FrameLayout.LayoutParams.WRAP_CONTENT
-                                );
-                                currentActivity.getWindow().getDecorView().addView(v, flp);
-                                XposedBridge.log("FGO Menu: Stolen window view added to DecorView! No permission needed!");
-                            }
+        // 2. 偷天换日：Hook WindowManagerImpl，拦截悬浮窗，强行塞进 DecorView！
+        Class<?> wmImplClass = XposedHelpers.findClass("android.view.WindowManagerImpl", lpparam.classLoader);
+        
+        XposedHelpers.findAndHookMethod(wmImplClass, "addView", View.class, ViewGroup.LayoutParams.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) param.args[1];
+                if (lp instanceof WindowManager.LayoutParams) {
+                    WindowManager.LayoutParams wlp = (WindowManager.LayoutParams) lp;
+                    if (wlp.type == WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY || 
+                        wlp.type == WindowManager.LayoutParams.TYPE_PHONE || 
+                        wlp.type == 2038 || wlp.type == 2002) {
+                        
+                        param.setResult(null); // 阻断原方法
+                        if (currentActivity != null) {
+                            View v = (View) param.args[0];
+                            FrameLayout decor = (FrameLayout) currentActivity.getWindow().getDecorView();
+                            FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(wlp.width, wlp.height);
+                            flp.leftMargin = wlp.x;
+                            flp.topMargin = wlp.y;
+                            v.setTag(wlp); // 保存原始参数
+                            decor.addView(v, flp);
+                            v.bringToFront();
+                            XposedBridge.log("FGO Menu: Intercepted addView! Injected into DecorView. No permission needed!");
                         }
                     }
                 }
-            });
-        } catch (Throwable t) {
-            XposedBridge.log("FGO Menu: Hook WindowManager failed: " + t.getMessage());
-        }
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(wmImplClass, "updateViewLayout", View.class, ViewGroup.LayoutParams.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) param.args[1];
+                if (lp instanceof WindowManager.LayoutParams) {
+                    WindowManager.LayoutParams wlp = (WindowManager.LayoutParams) lp;
+                    if (wlp.type == WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY || wlp.type == 2038 || wlp.type == 2002) {
+                        param.setResult(null);
+                        View v = (View) param.args[0];
+                        if (v.getParent() != null) {
+                            FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(wlp.width, wlp.height);
+                            flp.leftMargin = wlp.x;
+                            flp.topMargin = wlp.y;
+                            v.setLayoutParams(flp);
+                            v.bringToFront();
+                        }
+                    }
+                }
+            }
+        });
+
+        XposedHelpers.findAndHookMethod(wmImplClass, "removeView", View.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                View v = (View) param.args[0];
+                if (v.getTag() instanceof WindowManager.LayoutParams && v.getParent() instanceof FrameLayout) {
+                    param.setResult(null);
+                    ((ViewGroup) v.getParent()).removeView(v);
+                }
+            }
+        });
 
         // 3. 启动原作者的 Launcher
         XposedHelpers.findAndHookMethod(Activity.class, "onCreate", Bundle.class, new XC_MethodHook() {
