@@ -1,11 +1,9 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Bundle;
-import android.provider.Settings;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -18,45 +16,48 @@ public class XposedEntry implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.bilibili.fatego") && 
-            !lpparam.packageName.equals("com.aniplex.fategrandorder") &&
-            !lpparam.packageName.equals("com.xiaomeng.fategrandorder") &&
-            !lpparam.packageName.equals("com.netmarble.fgokr")) return;
-        
-        XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
+        if (!lpparam.packageName.equals("com.bilibili.fatego")) return;
+        XposedBridge.log("FGO Menu: Bili FGO detected!");
 
-        XposedHelpers.findAndHookMethod(Activity.class, "onCreate", Bundle.class, new XC_MethodHook() {
+        Class<?> activityClass = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
+        
+        XposedHelpers.findAndHookMethod(activityClass, "onResume", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 if (isHooked) return;
+                isHooked = true;
                 Activity activity = (Activity) param.thisObject;
-                String clsName = activity.getClass().getName();
+                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity onResume!");
                 
-                if (clsName.contains("UnityPlayer") || clsName.contains("MainActivity") || clsName.contains("Splash") || clsName.contains("BiliGame") || clsName.contains("Act")) {
-                    isHooked = true;
-                    activity.runOnUiThread(() -> {
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(activity)) {
-                                Toast.makeText(activity, "FGO Menu: 请授予悬浮窗权限！", Toast.LENGTH_LONG).show();
-                                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + activity.getPackageName()));
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                activity.startActivity(intent);
-                                return;
-                            }
-                            Toast.makeText(activity, "FGO Menu Injected!", Toast.LENGTH_SHORT).show();
-                            
-                            // 抛弃 Launcher Service，直接启动 Menu
-                            Menu menu = new Menu(activity);
-                            menu.SetWindowManagerWindowService();
-                            menu.ShowMenu();
-                            
-                        } catch (Throwable t) {
-                            XposedBridge.log("FGO Menu Error: " + t.getMessage());
-                            XposedBridge.log(t);
-                        }
-                    });
-                }
+                activity.runOnUiThread(() -> {
+                    try {
+                        ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
+                        findAndDemoteSurfaceView(decor);
+                        
+                        Toast.makeText(activity, "FGO Menu Injected!", Toast.LENGTH_SHORT).show();
+                        Menu menu = new Menu(activity);
+                        menu.SetWindowManagerWindowService();
+                        menu.ShowMenu();
+                        XposedBridge.log("FGO Menu: Success!");
+                    } catch (Throwable t) {
+                        XposedBridge.log("FGO Menu Error: " + t.getMessage());
+                        XposedBridge.log(t);
+                    }
+                });
             }
         });
+    }
+    
+    private void findAndDemoteSurfaceView(ViewGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof SurfaceView) {
+                ((SurfaceView) child).setZOrderOnTop(false);
+                ((SurfaceView) child).setZOrderMediaOverlay(false);
+                XposedBridge.log("FGO Menu: Demoted SurfaceView Z-Order!");
+            } else if (child instanceof ViewGroup) {
+                findAndDemoteSurfaceView((ViewGroup) child);
+            }
+        }
     }
 }
