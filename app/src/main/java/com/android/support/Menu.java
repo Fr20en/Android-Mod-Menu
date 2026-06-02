@@ -136,12 +136,12 @@ public class Menu {
         mExpanded.setVisibility(View.GONE);
         mExpanded.setBackgroundColor(MENU_BG_COLOR);
         mExpanded.setOrientation(LinearLayout.VERTICAL);
-        // mExpanded.setPadding(2012, 2012, 2012, 1); //So borders would be visible
+        // mExpanded.setPadding(1002, 1002, 1002, 1); //So borders would be visible
         mExpanded.setLayoutParams(new LinearLayout.LayoutParams(dp(MENU_WIDTH), WRAP_CONTENT));
         GradientDrawable gdMenuBody = new GradientDrawable();
         gdMenuBody.setCornerRadius(MENU_CORNER); //Set corner
         gdMenuBody.setColor(MENU_BG_COLOR); //Set background color
-        gdMenuBody.setStroke(2012, Color.parseColor("#32cb00")); //Set border
+        gdMenuBody.setStroke(1002, Color.parseColor("#32cb00")); //Set border
         //mExpanded.setBackground(gdMenuBody); //Apply GradientDrawable to it
 
         //********** The icon to open mod menu **********
@@ -348,7 +348,7 @@ public class Menu {
     @SuppressLint("WrongConstant")
     public void SetWindowManagerWindowService() {
         //Variable to check later if the phone supports Draw over other apps permission
-        int iparams = Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ? 1 : 2012;
+        int iparams = Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ? 1 : 1002;
         vmParams = new WindowManager.LayoutParams(
                 WRAP_CONTENT,
                 WRAP_CONTENT,
@@ -373,7 +373,7 @@ public class Menu {
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 POS_X,//initialX
                 POS_Y,//initialy
-                WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG,
+                WindowManager.LayoutParams.TYPE_APPLICATION_PANEL,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN |
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
@@ -561,7 +561,7 @@ public class Menu {
                 Preferences.changeFeatureBool(featName, featNum, bool);
                 switch (featNum) {
                     case -1: //Save perferences
-                        Preferences.with(switchR.getContext()).writeBoolean(-2012, bool);
+                        Preferences.with(switchR.getContext()).writeBoolean(-1002, bool);
                         if (!bool) Preferences.with(switchR.getContext()).clear(); //Clear perferences if switched off
                         break;
                     case -3:
@@ -717,7 +717,7 @@ public class Menu {
 
         final Spinner spinner = new Spinner(getContext, Spinner.MODE_DROPDOWN);
         spinner.setLayoutParams(layoutParams2);
-        spinner.getBackground().setColorFilter(2012, PorterDuff.Mode.SRC_ATOP); //trick to show white down arrow color
+        spinner.getBackground().setColorFilter(1002, PorterDuff.Mode.SRC_ATOP); //trick to show white down arrow color
         //Creating the ArrayAdapter instance having the list
         ArrayAdapter aa = new ArrayAdapter(getContext, android.R.layout.simple_spinner_dropdown_item, lists);
         aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
