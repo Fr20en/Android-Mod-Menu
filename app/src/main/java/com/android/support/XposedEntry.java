@@ -1,12 +1,9 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.os.Bundle;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
-import android.widget.FrameLayout;
 import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -16,126 +13,61 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class XposedEntry implements IXposedHookLoadPackage {
     private static boolean isHooked = false;
-    private static Activity currentActivity = null;
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.bilibili.fatego") && 
-            !lpparam.packageName.equals("com.aniplex.fategrandorder") &&
-            !lpparam.packageName.equals("com.xiaomeng.fategrandorder")) return;
-        
-        XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
+        if (!lpparam.packageName.equals("com.bilibili.fatego")) return;
+        XposedBridge.log("FGO Menu: Bili FGO detected!");
 
-        // 1. 废掉 SurfaceView 的置顶能力
         XposedHelpers.findAndHookMethod(SurfaceView.class, "setZOrderOnTop", boolean.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 param.args[0] = false;
             }
         });
-        XposedHelpers.findAndHookMethod(SurfaceView.class, "setZOrderMediaOverlay", boolean.class, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                param.args[0] = false;
-            }
-        });
 
-        // 2. 代理 WindowManager，把悬浮窗强行塞进 DecorView
-        Class<?> wmImplClass = XposedHelpers.findClass("android.view.WindowManagerImpl", lpparam.classLoader);
+        Class<?> targetActivity = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
         
-        XposedHelpers.findAndHookMethod(wmImplClass, "addView", View.class, ViewGroup.LayoutParams.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(targetActivity, "onWindowFocusChanged", boolean.class, new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (currentActivity == null) return;
-                View v = (View) param.args[0];
-                ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) param.args[1];
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                boolean hasFocus = (boolean) param.args[0];
+                if (!hasFocus || isHooked) return;
+                isHooked = true;
                 
-                FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(lp.width, lp.height);
-                if (lp instanceof WindowManager.LayoutParams) {
-                    WindowManager.LayoutParams wlp = (WindowManager.LayoutParams) lp;
-                    flp.leftMargin = wlp.x;
-                    flp.topMargin = wlp.y;
-                    flp.gravity = wlp.gravity;
-                }
+                Activity activity = (Activity) param.thisObject;
+                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus!");
                 
-                param.setResult(null);
-                currentActivity.addContentView(v, flp);
-                v.bringToFront();
-                XposedBridge.log("FGO Menu: Bypassed WindowManager! Used addContentView!");
-            }
-        });
-
-        XposedHelpers.findAndHookMethod(wmImplClass, "updateViewLayout", View.class, ViewGroup.LayoutParams.class, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (currentActivity == null) return;
-                View v = (View) param.args[0];
-                ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) param.args[1];
-                if (v.getParent() != null) {
-                    FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(lp.width, lp.height);
-                    if (lp instanceof WindowManager.LayoutParams) {
-                        WindowManager.LayoutParams wlp = (WindowManager.LayoutParams) lp;
-                        flp.leftMargin = wlp.x;
-                        flp.topMargin = wlp.y;
-                        flp.gravity = wlp.gravity;
+                activity.runOnUiThread(() -> {
+                    try {
+                        ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
+                        demoteSurfaceViews(decor);
+                        
+                        Toast.makeText(activity, "FGO Menu Injected (Activity Mode)!", Toast.LENGTH_LONG).show();
+                        
+                        // 核心：直接用 Activity Context 实例化 Menu，绝对不用 Service！
+                        Menu menu = new Menu(activity);
+                        menu.SetWindowManagerWindowService();
+                        menu.ShowMenu();
+                        
+                        XposedBridge.log("FGO Menu: Menu shown successfully!");
+                    } catch (Throwable t) {
+                        XposedBridge.log("FGO Menu FATAL: " + t.getMessage());
+                        XposedBridge.log(t);
                     }
-                    param.setResult(null);
-                    v.setLayoutParams(flp);
-                    v.bringToFront();
-                }
+                });
             }
         });
-
-        XposedHelpers.findAndHookMethod(wmImplClass, "removeView", View.class, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                View v = (View) param.args[0];
-                if (v.getParent() instanceof ViewGroup) {
-                    param.setResult(null);
-                    ((ViewGroup) v.getParent()).removeView(v);
-                }
-            }
-        });
-
-        // 3. 精准 Hook B服主 Activity
-        try {
-            Class<?> activityClass = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
-            XposedHelpers.findAndHookMethod(activityClass, "onResume", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    currentActivity = (Activity) param.thisObject;
-                    if (isHooked) return;
-                    isHooked = true;
-                    XposedBridge.log("FGO Menu: UnityPlayerNativeActivity onResume!");
-                    
-                    currentActivity.runOnUiThread(() -> {
-                        try {
-                            ViewGroup decor = (ViewGroup) currentActivity.getWindow().getDecorView();
-                            demoteSurfaceViews(decor);
-                            
-                            Toast.makeText(currentActivity, "FGO Menu Injected!", Toast.LENGTH_SHORT).show();
-                            Menu menu = new Menu(currentActivity);
-                            menu.SetWindowManagerWindowService();
-                            menu.ShowMenu();
-                            XposedBridge.log("FGO Menu: Success!");
-                        } catch (Throwable t) {
-                            XposedBridge.log("FGO Menu Error: " + t.getMessage());
-                            XposedBridge.log(t);
-                        }
-                    });
-                }
-            });
-        } catch (Throwable t) {
-            XposedBridge.log("FGO Menu: Failed to hook UnityPlayerNativeActivity: " + t.getMessage());
-        }
     }
     
     private void demoteSurfaceViews(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
             if (child instanceof SurfaceView) {
-                ((SurfaceView) child).setZOrderOnTop(false);
-                ((SurfaceView) child).setZOrderMediaOverlay(false);
+                try {
+                    ((SurfaceView) child).setZOrderOnTop(false);
+                    ((SurfaceView) child).setZOrderMediaOverlay(false);
+                } catch (Throwable ignored) {}
             } else if (child instanceof ViewGroup) {
                 demoteSurfaceViews((ViewGroup) child);
             }
