@@ -5,6 +5,7 @@
         android:label="FGO Hook Menu"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
         <service android:name=".Launcher" android:exported="false" android:stopWithTask="true" />
+        <activity android:name=".MenuActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" android:exported="false" />
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription" android:value="FGO IL2CPP Hook Mod Menu" />
         <meta-data android:name="xposedminversion" android:value="82" />
