@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <application
         android:label="FGO Hook Menu"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
+        
         <service android:name=".Launcher" android:exported="false" android:stopWithTask="true" />
+        <service android:name=".FloatService" android:exported="false" />
         <activity android:name=".MenuActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" android:exported="false" />
+        
+        <receiver android:name=".MenuReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="com.android.support.SHOW_MENU" />
+            </intent-filter>
+        </receiver>
+
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription" android:value="FGO IL2CPP Hook Mod Menu" />
         <meta-data android:name="xposedminversion" android:value="82" />
