@@ -17,12 +17,11 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install NDK
         run: sdkmanager "ndk;21.4.7075529"
-      - name: Force update Gradle Wrapper
+      - name: Force update Gradle Wrapper and Build
         run: |
           gradle wrapper --gradle-version 7.5
           chmod +x gradlew
-      - name: Build APK
-        run: ./gradlew assembleRelease --no-daemon --no-build-cache
+          ./gradlew assembleRelease --no-daemon --no-build-cache
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
