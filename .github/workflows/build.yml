@@ -17,6 +17,8 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install NDK
         run: sdkmanager "ndk;21.4.7075529"
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper
       - name: Grant execute permission
         run: chmod +x gradlew
       - name: Build APK
