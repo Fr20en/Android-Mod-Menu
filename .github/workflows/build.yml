@@ -19,12 +19,8 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install NDK
         run: sdkmanager "ndk;25.2.9519653"
-      - name: Download wrapper jar if missing
-        run: |
-          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            mkdir -p gradle/wrapper
-            curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v7.5.0/gradle/wrapper/gradle-wrapper.jar
-          fi
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper
       - name: Grant execute permission
         run: chmod +x gradlew
       - name: Build APK
