@@ -1,8 +1,15 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
+import android.graphics.Color;
+import android.view.Gravity;
+import android.view.SurfaceView;
+import android.view.TextureView;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -15,28 +22,65 @@ public class XposedEntry implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         if (!lpparam.packageName.equals("com.bilibili.fatego")) return;
-        
         XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
 
-        XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
+        Class<?> targetActivity = XposedHelpers.findClass("com.bilibili.fatego.UnityPlayerNativeActivity", lpparam.classLoader);
+        
+        XposedHelpers.findAndHookMethod(targetActivity, "onWindowFocusChanged", boolean.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (isHooked) return;
+                boolean hasFocus = (boolean) param.args[0];
+                if (!hasFocus || isHooked) return;
                 isHooked = true;
-                Activity activity = (Activity) param.thisObject;
+                
+                final Activity activity = (Activity) param.thisObject;
+                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus!");
                 
                 activity.runOnUiThread(() -> {
                     try {
-                        XposedBridge.log("FGO Menu: Starting external MenuActivity!");
-                        Intent intent = new Intent();
-                        intent.setClassName("com.android.support", "com.android.support.MenuActivity");
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        activity.startActivity(intent);
+                        ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
+                        demoteRenderLayers(decor);
+
+                        Button btn = new Button(activity);
+                        btn.setText("晴酱的终极菜单");
+                        btn.setTextSize(24);
+                        btn.setBackgroundColor(Color.RED);
+                        btn.setTextColor(Color.WHITE);
+                        btn.setOnClickListener(v -> Toast.makeText(activity, "菜单点击成功！", Toast.LENGTH_SHORT).show());
+
+                        FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(600, 200);
+                        flp.leftMargin = 100;
+                        flp.topMargin = 300;
+                        flp.gravity = Gravity.TOP | Gravity.LEFT;
+                        
+                        activity.addContentView(btn, flp);
+                        btn.bringToFront();
+                        
+                        XposedBridge.log("FGO Menu: Button added to DecorView successfully!");
                     } catch (Throwable t) {
                         XposedBridge.log("FGO Menu FATAL: " + t.getMessage());
+                        XposedBridge.log(t);
                     }
                 });
             }
         });
+    }
+    
+    private void demoteRenderLayers(ViewGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof SurfaceView) {
+                try {
+                    ((SurfaceView) child).setZOrderOnTop(false);
+                    ((SurfaceView) child).setZOrderMediaOverlay(false);
+                } catch (Throwable ignored) {}
+            } else if (child instanceof TextureView) {
+                try {
+                    // TextureView doesn't have setZOrderOnTop, but bringToFront works
+                } catch (Throwable ignored) {}
+            } else if (child instanceof ViewGroup) {
+                demoteRenderLayers((ViewGroup) child);
+            }
+        }
     }
 }
