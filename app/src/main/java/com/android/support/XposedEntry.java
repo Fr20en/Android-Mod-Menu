@@ -1,10 +1,10 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.view.SurfaceView;
+import android.graphics.Color;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Toast;
+import android.widget.FrameLayout;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -28,21 +28,26 @@ public class XposedEntry implements IXposedHookLoadPackage {
                 if (!hasFocus || isHooked) return;
                 isHooked = true;
                 
-                Activity activity = (Activity) param.thisObject;
-                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus!");
+                final Activity activity = (Activity) param.thisObject;
+                XposedBridge.log("FGO Menu: UnityPlayerNativeActivity got focus! Adding RED SCREEN...");
                 
                 activity.runOnUiThread(() -> {
                     try {
                         ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
-                        demoteSurfaceViews(decor);
                         
-                        Toast.makeText(activity, "晴酱的菜单注入成功喵！", Toast.LENGTH_LONG).show();
+                        // 最暴力的全屏红色遮罩，不需要任何权限和资源！
+                        View redScreen = new View(activity);
+                        redScreen.setBackgroundColor(Color.parseColor("#CCFF0000")); // 半透明红色
                         
-                        Menu menu = new Menu(activity);
-                        menu.SetWindowManagerWindowService();
-                        menu.ShowMenu();
+                        FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        );
                         
-                        XposedBridge.log("FGO Menu: Menu shown with TYPE_APPLICATION_PANEL!");
+                        decor.addView(redScreen, flp);
+                        redScreen.bringToFront();
+                        
+                        XposedBridge.log("FGO Menu: RED SCREEN ADDED SUCCESSFULLY!");
                     } catch (Throwable t) {
                         XposedBridge.log("FGO Menu FATAL: " + t.getMessage());
                         XposedBridge.log(t);
@@ -50,20 +55,5 @@ public class XposedEntry implements IXposedHookLoadPackage {
                 });
             }
         });
-    }
-    
-    private void demoteSurfaceViews(ViewGroup group) {
-        for (int i = 0; i < group.getChildCount(); i++) {
-            View child = group.getChildAt(i);
-            if (child instanceof SurfaceView) {
-                try {
-                    ((SurfaceView) child).setZOrderOnTop(false);
-                    ((SurfaceView) child).setZOrderMediaOverlay(false);
-                    XposedBridge.log("FGO Menu: Demoted SurfaceView Z-Order!");
-                } catch (Throwable ignored) {}
-            } else if (child instanceof ViewGroup) {
-                demoteSurfaceViews((ViewGroup) child);
-            }
-        }
     }
 }
