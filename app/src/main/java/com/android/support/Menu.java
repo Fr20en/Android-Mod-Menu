@@ -348,7 +348,7 @@ public class Menu {
     @SuppressLint("WrongConstant")
     public void SetWindowManagerWindowService() {
         //Variable to check later if the phone supports Draw over other apps permission
-        int iparams = Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ? 2038 : 2002;
+        int iparams = Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O ? 1 : 1;
         vmParams = new WindowManager.LayoutParams(
                 WRAP_CONTENT,
                 WRAP_CONTENT,
@@ -814,7 +814,7 @@ public class Menu {
 
                 if (overlayRequired) {
                     AlertDialog dialog = alertName.create(); // display the dialog
-                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 1 : 1);
                     dialog.show();
                 } else {
                     alertName.show();
@@ -902,7 +902,7 @@ public class Menu {
 
                 if (overlayRequired) {
                     AlertDialog dialog = alertName.create(); // display the dialog
-                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+                    Objects.requireNonNull(dialog.getWindow()).setType(Build.VERSION.SDK_INT >= 26 ? 1 : 1);
                     dialog.show();
                 } else {
                     alertName.show();
@@ -974,7 +974,7 @@ public class Menu {
 
                 if (overlayRequired) {
                     AlertDialog dialog = alertName.create(); // display the dialog
-                    dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26 ? 2038 : 2002);
+                    dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26 ? 1 : 1);
                     dialog.show();
                 } else {
                     alertName.show();
