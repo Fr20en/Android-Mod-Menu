@@ -1,7 +1,6 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -11,31 +10,44 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class XposedEntry implements IXposedHookLoadPackage {
-    private static boolean isHooked = false;
+    private static boolean isInjected = false;
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if (!lpparam.packageName.equals("com.bilibili.fatego") && 
-            !lpparam.packageName.equals("com.aniplex.fategrandorder") &&
-            !lpparam.packageName.equals("com.xiaomeng.fategrandorder")) return;
+        String pkg = lpparam.packageName;
+        if (!pkg.equals("com.bilibili.fatego") && 
+            !pkg.equals("com.aniplex.fategrandorder") &&
+            !pkg.equals("com.xiaomeng.fategrandorder") &&
+            !pkg.equals("com.netease.fgo")) return;
         
-        XposedBridge.log("FGO Menu: Target matched! " + lpparam.packageName);
+        XposedBridge.log("FGO Menu: Target matched! " + pkg);
 
-        XposedHelpers.findAndHookMethod(Activity.class, "onCreate", Bundle.class, new XC_MethodHook() {
+        // Hook Activity.onResume 确保 UI 已经初始化
+        XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                if (isInjected) return;
+                
                 Activity activity = (Activity) param.thisObject;
                 String clsName = activity.getClass().getName();
+                XposedBridge.log("FGO Menu: onResume triggered in " + clsName);
                 
-                if (!isHooked && (clsName.contains("UnityPlayerActivity") || clsName.contains("MainActivity") || clsName.contains("Splash"))) {
-                    isHooked = true;
+                // 只在主 Activity 注入
+                if (clsName.contains("UnityPlayer") || clsName.contains("MainActivity") || clsName.contains("Splash") || clsName.contains("BiliGame")) {
+                    isInjected = true;
                     activity.runOnUiThread(() -> {
                         try {
-                            XposedBridge.log("FGO Menu: Injecting Menu into Activity DecorView...");
-                            Toast.makeText(activity, "FGO Menu Injected!", Toast.LENGTH_SHORT).show();
-                            activity.startService(new Intent(activity, Launcher.class));
+                            XposedBridge.log("FGO Menu: Initializing Menu directly in Activity...");
+                            Toast.makeText(activity, "FGO Menu Injected Successfully!", Toast.LENGTH_LONG).show();
+                            
+                            // 直接实例化并显示，抛弃 Launcher Service
+                            Menu menu = new Menu(activity);
+                            menu.SetWindowManagerWindowService();
+                            menu.ShowMenu();
+                            
+                            XposedBridge.log("FGO Menu: Menu UI displayed!");
                         } catch (Throwable t) {
-                            XposedBridge.log("FGO Menu Error: " + t.getMessage());
+                            XposedBridge.log("FGO Menu FATAL Error: " + t.getMessage());
                             XposedBridge.log(t);
                         }
                     });
