@@ -1,29 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
+    package="com.android.support">
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.INTERNET" />
-
     <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        >
-        <activity android:name="com.android.support.MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <service
-            android:name="com.android.support.Launcher"
-            android:enabled="true"
-            android:exported="true"
-            android:stopWithTask="true" />
-        <!-- stopWithTask="true" is to prevent game crashing after closing from task manager -->
+        android:label="FGO Hook Menu"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar">
+        <service android:name=".Menu" android:exported="false" />
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="FGO IL2CPP Hook Mod Menu" />
+        <meta-data android:name="xposedminversion" android:value="82" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
     </application>
 </manifest>
