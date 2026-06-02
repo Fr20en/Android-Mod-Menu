@@ -1,7 +1,11 @@
 package com.android.support;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -24,15 +28,21 @@ public class XposedEntry implements IXposedHookLoadPackage {
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Activity activity = (Activity) param.thisObject;
                 String clsName = activity.getClass().getName();
-                XposedBridge.log("FGO Menu: Activity onCreate: " + clsName);
                 
-                if (!isHooked && (clsName.contains("UnityPlayerActivity") || clsName.contains("MainActivity") || clsName.contains("Splash"))) {
+                if (!isHooked && (clsName.contains("UnityPlayerActivity") || clsName.contains("MainActivity"))) {
                     isHooked = true;
                     activity.runOnUiThread(() -> {
                         try {
-                            XposedBridge.log("FGO Menu: Initializing Menu UI...");
-                            Toast.makeText(activity, "FGO Menu Injected! Check overlay permission!", Toast.LENGTH_LONG).show();
-                            new Menu(activity);
+                            if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(activity)) {
+                                XposedBridge.log("FGO Menu: Missing overlay permission!");
+                                Toast.makeText(activity, "FGO Menu: Please enable overlay permission!", Toast.LENGTH_LONG).show();
+                                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + activity.getPackageName()));
+                                activity.startActivity(intent);
+                                return;
+                            }
+                            XposedBridge.log("FGO Menu: Starting Launcher Service...");
+                            Toast.makeText(activity, "FGO Menu Injected!", Toast.LENGTH_SHORT).show();
+                            activity.startService(new Intent(activity, Launcher.class));
                         } catch (Throwable t) {
                             XposedBridge.log("FGO Menu Error: " + t.getMessage());
                             XposedBridge.log(t);
